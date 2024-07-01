@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טסטר - משחק שאלות תאוריה</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1>טסטר - משחק שאלות תאוריה</h1>
+        
+        <div id="user-area">
+            <button id="user-menu-btn" class="user-btn">שלום, אורח</button>
+            <div id="user-menu" class="user-menu">
+                <button id="reset-game" class="user-menu-item">איפוס המשחק</button>
+                <button id="view-stats" class="user-menu-item">צפייה בסטטיסטיקות</button>
+                <button id="customize-game" class="user-menu-item">התאמה אישית</button>
+                <button id="logout-btn" class="user-menu-item">התנתקות</button>
+            </div>
+        </div>
+        
+        <div id="menu">
+            <h2>בחר רמת קושי:</h2>
+            <div class="difficulty-buttons">
+                <button id="easy" class="difficulty-btn">קל</button>
+                <button id="medium" class="difficulty-btn">בינוני</button>
+                <button id="hard" class="difficulty-btn">קשה</button>
+            </div>
+
+            <h2>בחר דרגת רישיון:</h2>
+            <div class="license-buttons">
+                <button id="A" class="license-btn" onclick="setLicenseType('A')">A</button>
+                <button id="B" class="license-btn" onclick="setLicenseType('B')">B</button>
+                <button id="C" class="license-btn" onclick="setLicenseType('C')">C</button>
+                <button id="C1" class="license-btn" onclick="setLicenseType('C1')">C1</button>
+                <button id="D" class="license-btn" onclick="setLicenseType('D')">D</button>
+                <button id="1" class="license-btn" onclick="setLicenseType('1')">1</button>
+            </div>
+
+            <h2>בחר קטגוריה:</h2>
+            <div class="category-buttons">
+                <button id="all" class="category-btn">הכל</button>
+                <!-- קטגוריות נוספות יתווספו כאן דינמית -->
+            </div>
+
+            <div id="question-count">
+                <label for="num-questions">מספר שאלות:</label>
+                <div id="question-count-container">
+                    <button id="question-count-minus">-</button>
+                    <input type="number" id="num-questions" min="1" max="50" value="10">
+                    <button id="question-count-plus">+</button>
+                </div>
+            </div>
+
+            <div class="game-mode">
+                <label>
+                    <input type="checkbox" id="practice-mode"> מצב אימון
+                </label>
+            </div>
+
+            <button id="start-game" class="main-btn">התחל משחק</button>
+            <button id="start-advanced-practice" class="main-btn">מצב אימון מתקדם</button>
+            <button id="start-competition" class="main-btn">מצב תחרות</button>
+        </div>
+
+        <div id="game" style="display: none;">
+            <div id="progress-bar"></div>
+            <div id="score"></div>
+            <div id="timer-container">
+                <div id="timer-circle"></div>
+            </div>
+            <div id="question-container">
+                <h2 id="question"></h2>
+                <div id="question-image"></div>
+                <div id="options"></div>
+            </div>
+            <div id="feedback"></div>
+            <div id="explanation" style="display: none;"></div>
+        </div>
+
+        <div id="end-screen" style="display: none;">
+            <h2>המשחק הסתיים!</h2>
+            <p id="final-score"></p>
+            <p id="compliment"></p>
+            <div id="stats"></div>
+            <div id="incorrect-questions"></div>
+            <p id="high-score"></p>
+            <p id="user-rank"></p>
+            <button id="play-again" class="main-btn">שחק שוב</button>
+        </div>
+
+        <div id="question-cards" style="display: none;">
+            <!-- תוכן זה ייווצר דינמית ב-JavaScript -->
+        </div>
+
+        <div id="stats-screen" style="display: none;">
+            <h2>סטטיסטיקות</h2>
+            <div id="stats-content"></div>
+            <button id="back-to-menu-from-stats" class="main-btn">חזרה לתפריט</button>
+        </div>
+
+        <div id="customize-screen" style="display: none;">
+            <h2>התאמה אישית</h2>
+            <div id="customize-content">
+                <h3>צבע רקע:</h3>
+                <input type="color" id="bg-color" value="#f1f2f6">
+                <h3>צבע טקסט:</h3>
+                <input type="color" id="text-color" value="#2c3e50">
+                <h3>גודל גופן:</h3>
+                <input type="range" id="font-size" min="12" max="24" value="16">
+            </div>
+            <button id="save-customization" class="main-btn">שמור שינויים</button>
+            <button id="back-to-menu-from-customize" class="main-btn">חזרה לתפריט</button>
+        </div>
+    </div>
+
+    <button id="back-to-menu" class="floating-btn" style="display: none;">חזור לתפריט</button>
+    <button id="view-question-cards" class="floating-btn">כרטיסיות השאלות</button>
+
+    <div id="auth-screen" class="fullscreen-overlay">
+        <div class="auth-container">
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">כניסה</button>
+                <button class="auth-tab" data-tab="register">הרשמה</button>
+            </div>
+            <div id="login-form" class="auth-form active">
+                <h2>ברוכים השבים</h2>
+                <input type="email" placeholder="אימייל" required>
+                <input type="password" placeholder="סיסמה" required>
+                <button class="auth-submit">כניסה</button>
+                <p class="auth-forgot">שכחת סיסמה?</p>
+            </div>
+            <div id="register-form" class="auth-form">
+                <h2>הצטרפו אלינו</h2>
+                <input type="text" placeholder="שם מלא" required>
+                <input type="email" placeholder="אימייל" required>
+                <input type="password" placeholder="סיסמה" required>
+                <input type="password" placeholder="אימות סיסמה" required>
+                <button class="auth-submit">הרשמה</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
