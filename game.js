@@ -1,3 +1,10 @@
+const TIME_PER_QUESTION = {
+  easy: 40,
+  medium: 30,
+  hard: 20,
+};
+
+// Global variables
 let currentQuestion = 0;
 let score = 0;
 let currentQuestions = [];
@@ -15,33 +22,55 @@ let userStats = {};
 let userRank = 0;
 let isCompetitionMode = false;
 let competitionStartTime;
+let hasAnswered = false;
+let isMockExam = false;
+const MOCK_EXAM_TIME = 40 * 60; // 40 דקות בשניות
+const MOCK_EXAM_QUESTIONS = 30; // 30 שאלות
+const MOCK_EXAM_PASS_THRESHOLD = 26; // 26 תשובות נכונות כדי לעבור
 
-const TIME_PER_QUESTION = {
-  easy: 40,
-  medium: 30,
-  hard: 20,
+/**
+ * Initializes the game
+ */
+const initGame = () => {
+  resetGameState();
+  loadQuestions();
+  if (currentQuestions.length === 0) {
+    showNotification("אין שאלות זמינות עבור הקריטריונים שנבחרו. אנא בחר קטגוריה או סוג רישיון אחר.", 'error');
+    return;
+  }
+  setupGameUI();
+  if (isCompetitionMode) {
+    initCompetitionMode();
+  }
 };
 
-const initGame = () => {
+/**
+ * Resets the game state
+ */
+const resetGameState = () => {
   currentQuestion = 0;
   score = 0;
   incorrectQuestions = [];
   numQuestions = parseInt(document.getElementById("num-questions").value);
   isPracticeMode = document.getElementById("practice-mode").checked;
-  
+};
+
+/**
+ * Loads questions based on selected criteria
+ */
+const loadQuestions = () => {
   let availableQuestions = allQuestions.filter(q => !answeredQuestions.has(q.id));
   if (availableQuestions.length < numQuestions) {
     answeredQuestions.clear();
     availableQuestions = allQuestions;
   }
-  
   currentQuestions = selectQuestions(numQuestions, availableQuestions);
-  
-  if (currentQuestions.length === 0) {
-    alert("אין שאלות זמינות עבור הקריטריונים שנבחרו. אנא בחר קטגוריה או סוג רישיון אחר.");
-    return;
-  }
+};
 
+/**
+ * Sets up the game UI
+ */
+const setupGameUI = () => {
   hideElement("menu");
   hideElement("end-screen");
   hideElement("question-cards");
@@ -51,25 +80,25 @@ const initGame = () => {
   displayQuestion();
   updateScore();
   updateProgressBar();
-
-  if (isCompetitionMode) {
-    initCompetitionMode();
-  }
 };
 
-function getFileName(url) {
-  return url.split('/').pop();
-}
-
+/**
+ * Selects questions based on criteria
+ * @param {number} amount - Number of questions to select
+ * @param {Array} availableQuestions - Array of available questions
+ * @returns {Array} Selected questions
+ */
 const selectQuestions = (amount, availableQuestions) => {
   let selectedQuestions = availableQuestions.filter((q) => 
     (selectedCategory === "all" || q.category === selectedCategory) && 
     q.licenseTypes.includes(selectedLicenseType)
   );
-  let shuffled = selectedQuestions.sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(amount, shuffled.length));
+  return shuffleArray(selectedQuestions).slice(0, Math.min(amount, selectedQuestions.length));
 };
 
+/**
+ * Displays the current question
+ */
 const displayQuestion = () => {
   if (!isPracticeMode) {
     stopTimer();
@@ -79,26 +108,12 @@ const displayQuestion = () => {
     return;
   }
 
+  hasAnswered = false;
   let questionData = currentQuestions[currentQuestion];
   document.getElementById("question").textContent = questionData.question;
 
-  let optionsContainer = document.getElementById("options");
-  optionsContainer.innerHTML = "";
-  questionData.options.forEach((option, index) => {
-    let button = document.createElement("button");
-    button.textContent = option;
-    button.onclick = () => checkAnswer(index);
-    optionsContainer.appendChild(button);
-  });
-
-  if (questionData.image) {
-    let img = document.createElement("img");
-    img.src = "./images/" + getFileName(questionData.image);
-    document.getElementById("question-image").innerHTML = "";
-    document.getElementById("question-image").appendChild(img);
-  } else {
-    document.getElementById("question-image").innerHTML = "";
-  }
+  displayOptions(questionData);
+  displayQuestionImage(questionData);
 
   document.getElementById("explanation").style.display = "none";
 
@@ -108,7 +123,45 @@ const displayQuestion = () => {
   updateProgressBar();
 };
 
+/**
+ * Displays question options
+ * @param {Object} questionData - Current question data
+ */
+const displayOptions = (questionData) => {
+  let optionsContainer = document.getElementById("options");
+  optionsContainer.innerHTML = "";
+  questionData.options.forEach((option, index) => {
+    let button = document.createElement("button");
+    button.textContent = option;
+    button.onclick = () => checkAnswer(index);
+    optionsContainer.appendChild(button);
+  });
+};
+
+/**
+ * Displays question image if available
+ * @param {Object} questionData - Current question data
+ */
+const displayQuestionImage = (questionData) => {
+  let imageContainer = document.getElementById("question-image");
+  if (questionData.image) {
+    let img = document.createElement("img");
+    img.src = `./images/${getFileName(questionData.image)}`;
+    imageContainer.innerHTML = "";
+    imageContainer.appendChild(img);
+  } else {
+    imageContainer.innerHTML = "";
+  }
+};
+
+/**
+ * Checks the selected answer
+ * @param {number} selectedIndex - Index of the selected answer
+ */
 const checkAnswer = (selectedIndex) => {
+  if (hasAnswered) return;
+  hasAnswered = true;
+
   if (!isPracticeMode) {
     stopTimer();
   }
@@ -118,35 +171,17 @@ const checkAnswer = (selectedIndex) => {
   answeredQuestions.add(questionData.id);
   
   let buttons = document.querySelectorAll('#options button');
-  buttons[selectedIndex].classList.add('selected');
   
   if (selectedIndex === correctIndex) {
-    score++;
-    updateScore();
-    showFeedback(true);
-    removeFromDifficultQuestions(questionData.id);
+    handleCorrectAnswer(buttons[selectedIndex]);
+    showFeedback("correct");
   } else {
-    showFeedback(false);
-    incorrectQuestions.push({
-      id: questionData.id,
-      question: questionData.question,
-      correctAnswer: questionData.options[correctIndex],
-      userAnswer: questionData.options[selectedIndex],
-    });
-    
-    showCorrectAnswer(correctIndex);
-    addToDifficultQuestions(questionData.id);
+    handleIncorrectAnswer(buttons, selectedIndex, correctIndex, questionData);
+    showFeedback("incorrect");
   }
   
   if (isPracticeMode) {
-    showExplanation(questionData.explanation);
-    const continueButton = document.createElement("button");
-    continueButton.textContent = "המשך";
-    continueButton.onclick = () => {
-      currentQuestion++;
-      displayQuestion();
-    };
-    document.getElementById("options").appendChild(continueButton);
+    showPracticeModeUI(questionData);
   } else {
     setTimeout(() => {
       currentQuestion++;
@@ -154,36 +189,50 @@ const checkAnswer = (selectedIndex) => {
     }, 3000);
   }
 };
-
-const showCorrectAnswer = (correctIndex) => {
-  let buttons = document.querySelectorAll('#options button');
+const handleIncorrectAnswer = (buttons, selectedIndex, correctIndex, questionData) => {
+  showFeedback(false);
+  incorrectQuestions.push({
+    id: questionData.id,
+    question: questionData.question,
+    correctAnswer: questionData.options[correctIndex],
+    userAnswer: selectedIndex === -1 ? "לא נענתה (הזמן נגמר)" : questionData.options[selectedIndex],
+  });
+  
+  if (selectedIndex !== -1) {
+    buttons[selectedIndex].classList.add('incorrect-answer');
+  }
   buttons[correctIndex].classList.add('correct-answer');
-  
-  buttons[correctIndex].style.animation = 'pulse 0.5s infinite alternate';
-  
-  let crossmark = document.createElement('span');
-  crossmark.innerHTML = '✗';
-  crossmark.className = 'crossmark';
-  buttons[correctIndex].appendChild(crossmark);
+  animateElement(buttons[correctIndex], 'pulse 0.5s');
+  addToDifficultQuestions(questionData.id);
 };
 
-const updateScore = () => {
-  document.getElementById("score").textContent = `ניקוד: ${score}/${currentQuestions.length}`;
+/**
+ * Handles correct answer
+ * @param {HTMLElement} button - The correct answer button
+ */
+const handleCorrectAnswer = (button) => {
+  score++;
+  updateScore();
+  showFeedback(true);
+  removeFromDifficultQuestions(currentQuestions[currentQuestion].id);
+  button.classList.add('correct-answer');
+  animateElement(button, 'pulse 0.5s');
 };
 
-const showFeedback = (isCorrect) => {
-  let feedbackElement = document.getElementById("feedback");
-  feedbackElement.textContent = isCorrect ? "תשובה נכונה!" : "תשובה שגויה.";
-  feedbackElement.style.color = isCorrect ? "var(--correct-color)" : "var(--incorrect-color)";
-  setTimeout(() => {
-    feedbackElement.textContent = "";
-  }, 1500);
-};
-
-const showExplanation = (explanation) => {
-  let explanationElement = document.getElementById("explanation");
-  explanationElement.textContent = explanation;
-  explanationElement.style.display = "block";
+/**
+ * Shows UI elements for practice mode
+ * @param {Object} questionData - Current question data
+ */
+const showPracticeModeUI = (questionData) => {
+  showExplanation(questionData.explanation);
+  const continueButton = document.createElement("button");
+  continueButton.textContent = "המשך";
+  continueButton.classList.add('continue-btn');
+  continueButton.onclick = () => {
+    currentQuestion++;
+    displayQuestion();
+  };
+  document.getElementById("options").appendChild(continueButton);
 };
 
 const showQuestionCards = () => {
@@ -203,8 +252,8 @@ const showQuestionCards = () => {
   categoryMenu.appendChild(allCategoriesCard);
   
   for (let category in questions) {
-    const card = createCategoryCard(getCategoryDisplayName(category), category);
-    categoryMenu.appendChild(card);
+      const card = createCategoryCard(getCategoryDisplayName(category), category);
+      categoryMenu.appendChild(card);
   }
   
   container.appendChild(categoryMenu);
@@ -214,11 +263,206 @@ const createCategoryCard = (displayName, category) => {
   const card = document.createElement("div");
   card.className = "category-card";
   card.innerHTML = `
-    <h3>${displayName}</h3>
-    <div class="category-icon">${getCategoryIcon(category)}</div>
+      <div class="category-icon">${getCategoryIcon(category)}</div>
+      <h3>${displayName}</h3>
   `;
   card.onclick = () => showCategoryCards(category);
   return card;
+};
+
+const handleLogin = (event) => {
+  event.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  
+  if (!email || !password) {
+    showNotification('נא למלא את כל השדות', 'error');
+    return;
+  }
+  
+  login(email, password);
+};
+
+const handleRegister = (event) => {
+  event.preventDefault();
+  
+  const form = document.getElementById('register-form-element');
+  if (!form) {
+    console.error('Registration form not found');
+    return;
+  }
+
+  const name = form.querySelector('#register-name')?.value;
+  const email = form.querySelector('#register-email')?.value;
+  const password = form.querySelector('#register-password')?.value;
+  const passwordConfirm = form.querySelector('#register-password-confirm')?.value;
+  
+  if (!name || !email || !password || !passwordConfirm) {
+    showNotification('נא למלא את כל השדות', 'error');
+    return;
+  }
+  
+  register(name, email, password, passwordConfirm);
+};
+
+/**
+ * Initializes the game when the window loads
+ */
+window.onload = () => {
+  initializeGameSettings();
+  setupEventListeners();
+  loadUserData();
+};
+
+/**
+ * Initializes game settings
+ */
+const initializeGameSettings = () => {
+  setDifficulty("medium");
+  setCategory("all");
+  setLicenseType("B");
+  displayHighScore();
+  loadCustomization();
+  loadAllQuestions();
+  createCategoryButtons();
+};
+
+/**
+ * Loads all questions and assigns unique IDs
+ */
+const loadAllQuestions = () => {
+  allQuestions = [];
+  let id = 1;
+  for (let category in questions) {
+    questions[category].forEach(q => {
+      q.id = id++;
+      q.category = category;
+      allQuestions.push(q);
+    });
+  }
+};
+
+/**
+ * Sets up event listeners for various UI elements
+ */
+const setupEventListeners = () => {
+  // Auth-related event listeners
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+  });
+
+  document.querySelector('#login-form').addEventListener('submit', handleLogin);
+  document.querySelector('#register-form').addEventListener('submit', handleRegister);
+  document.getElementById('logout-btn').addEventListener('click', logout);
+  const registerForm = document.getElementById('register-form-element');
+  if (registerForm) {
+    registerForm.addEventListener('submit', handleRegister);
+  } else {
+    console.error('Registration form not found');
+  }
+  // Game control event listeners
+  document.getElementById("start-game").addEventListener('click', initGame);
+  document.getElementById("play-again").addEventListener('click', initGame);
+  document.getElementById("easy").addEventListener('click', () => setDifficulty("easy"));
+  document.getElementById("medium").addEventListener('click', () => setDifficulty("medium"));
+  document.getElementById("hard").addEventListener('click', () => setDifficulty("hard"));
+  document.getElementById("start-advanced-practice").addEventListener('click', startAdvancedPractice);
+  document.getElementById("start-competition").addEventListener('click', startCompetition);
+  document.getElementById("customize-game").addEventListener('click', customizeGame);
+  document.getElementById("save-customization").addEventListener('click', saveCustomization);
+  document.getElementById("back-to-menu-from-customize").addEventListener('click', showMenu);
+
+  // Question count listeners
+  document.getElementById("question-count-minus").addEventListener('click', () => {
+    let input = document.getElementById("num-questions");
+    if (input.value > 1) {
+      input.value = parseInt(input.value) - 1;
+    }
+  });
+  document.getElementById("question-count-plus").addEventListener('click', () => {
+    let input = document.getElementById("num-questions");
+    if (input.value < 50) {
+      input.value = parseInt(input.value) + 1;
+    }
+  });
+
+  // Navigation event listeners
+  document.getElementById("back-to-menu").addEventListener('click', showMenu);
+  document.getElementById("view-question-cards").addEventListener('click', showQuestionCards);
+  document.getElementById('user-menu-btn').addEventListener('click', toggleUserMenu);
+  document.getElementById('reset-game').addEventListener('click', resetGame);
+  document.getElementById('view-stats').addEventListener('click', showStatsScreen);
+  document.getElementById('back-to-menu-from-stats').addEventListener('click', showMenu);
+
+  // Game mode event listener
+  document.getElementById("practice-mode").addEventListener("change", togglePracticeMode);
+
+  // Customization event listeners
+  document.getElementById("bg-color").addEventListener("input", applyCustomization);
+  document.getElementById("text-color").addEventListener("input", applyCustomization);
+  document.getElementById("font-size").addEventListener("input", applyCustomization);
+};
+/**
+ * Loads user data from local storage
+ */
+const loadUserData = () => {
+  const savedUser = localStorage.getItem('currentUser');
+  if (savedUser) {
+    currentUser = JSON.parse(savedUser);
+    updateUIForLoggedInUser();
+  } else {
+    showAuthScreen();
+  }
+
+  const savedStats = localStorage.getItem('userStats');
+  if (savedStats) {
+    userStats = JSON.parse(savedStats);
+  }
+};
+
+const createCategoryButtons = () => {
+  const categoryContainer = document.querySelector(".category-buttons");
+  categoryContainer.innerHTML = ''; // נקה את הכפתורים הקיימים
+  for (let category in questions) {
+      let button = document.createElement("button");
+      button.id = category;
+      button.className = "category-btn";
+      button.textContent = getCategoryDisplayName(category);
+      button.onclick = () => setCategory(category);
+      categoryContainer.appendChild(button);
+  }
+};
+
+function getFileName(url) {
+  return url.split('/').pop();
+}
+
+const updateScore = () => {
+  document.getElementById("score").textContent = `ניקוד: ${score}/${currentQuestions.length}`;
+};
+
+const showFeedback = (status) => {
+  let feedbackElement = document.getElementById("feedback");
+  if (status === "correct") {
+    feedbackElement.textContent = "תשובה נכונה!";
+    feedbackElement.style.color = "var(--correct-color)";
+  } else if (status === "incorrect") {
+    feedbackElement.textContent = "תשובה שגויה.";
+    feedbackElement.style.color = "var(--incorrect-color)";
+  } else if (status === "timeUp") {
+    feedbackElement.textContent = "הזמן נגמר!";
+    feedbackElement.style.color = "var(--incorrect-color)";
+  }
+  
+  setTimeout(() => {
+    feedbackElement.textContent = "";
+  }, 1500);
+};
+
+const showExplanation = (explanation) => {
+  let explanationElement = document.getElementById("explanation");
+  explanationElement.textContent = explanation;
+  explanationElement.style.display = "block";
 };
 
 const getCategoryDisplayName = (category) => {
@@ -266,6 +510,38 @@ const showCategoryCards = (category) => {
   cardsContainer.className = "cards-container";
   
   const categoryQuestions = category === "all" ? allQuestions : questions[category];
+  
+  function createQuestionCard(cardQuestions, cardNumber) {
+    const card = document.createElement("div");
+    card.className = "question-card";
+    
+    const answeredCount = cardQuestions.filter(q => answeredQuestions.has(q.id)).length;
+    const incorrectCount = cardQuestions.filter(q => 
+      answeredQuestions.has(q.id) && 
+      incorrectQuestions.some(iq => iq.id === q.id)
+    ).length;
+    
+    card.innerHTML = `
+      <div class="card-icon">${getQuestionSetIcon(cardNumber - 1)}</div>
+      <h3>סט שאלות ${cardNumber}</h3>
+    `;
+    
+    if (answeredCount === cardQuestions.length) {
+      if (incorrectCount === 0) {
+        card.classList.add('completed');
+        card.innerHTML += '<p>כל השאלות נענו נכון!</p>';
+      } else {
+        card.innerHTML += `<p>שאלות שגויות: ${incorrectCount} מתוך ${cardQuestions.length}</p>`;
+        card.onclick = () => startCardQuiz(cardQuestions);
+      }
+    } else {
+      card.innerHTML += `<p>לחץ כדי לענות על השאלות</p>`;
+      card.onclick = () => startCardQuiz(cardQuestions);
+    }
+    
+    return card;
+  }
+
   for (let i = 0; i < categoryQuestions.length; i += 50) {
     const cardQuestions = categoryQuestions.slice(i, i + 50);
     const card = createQuestionCard(cardQuestions, i / 50 + 1);
@@ -277,43 +553,48 @@ const showCategoryCards = (category) => {
   document.getElementById("back-to-categories").onclick = showQuestionCards;
 };
 
-const getQuestionSetIcon = (setNumber) => {
-  const icons = [
-    "🚗", "🛑", "🔧", "🦺", "🚸"
-  ];
-  return icons[setNumber % icons.length];
-};
-
 const createQuestionCard = (cardQuestions, cardNumber) => {
   const card = document.createElement("div");
   card.className = "question-card";
-  const answered = cardQuestions.filter(q => answeredQuestions.has(q.id)).length;
-  const correct = cardQuestions.filter(q => answeredQuestions.has(q.id) && !incorrectQuestions.some(iq => iq.id === q.id)).length;
+  
+  const answeredCount = cardQuestions.filter(q => answeredQuestions.has(q.id)).length;
+  const incorrectCount = cardQuestions.filter(q => 
+    answeredQuestions.has(q.id) && 
+    incorrectQuestions.some(iq => iq.id === q.id)
+  ).length;
   
   card.innerHTML = `
     <div class="card-icon">${getQuestionSetIcon(cardNumber - 1)}</div>
     <h3>סט שאלות ${cardNumber}</h3>
-    <div class="card-progress">
-      <div class="card-progress-inner" style="width: ${(answered / cardQuestions.length) * 100}%"></div>
-    </div>
-    <p>נענו: ${answered} מתוך ${cardQuestions.length}</p>
-    <p>נכונות: ${correct} מתוך ${answered}</p>
+    <p>שאלות שגויות: ${incorrectCount} מתוך ${answeredCount}</p>
   `;
-  card.onclick = () => startCardQuiz(cardQuestions);
+  
+  if (answeredCount === 0) {
+    card.onclick = () => startCardQuiz(cardQuestions);
+  } else if (incorrectCount > 0) {
+    card.onclick = () => startCardQuiz(cardQuestions);
+  } else if (answeredCount === cardQuestions.length) {
+    card.classList.add('completed');
+    card.innerHTML += '<p>כל השאלות נענו נכון!</p>';
+  }
+  
   return card;
 };
 
 const startCardQuiz = (cardQuestions) => {
-  const unansweredQuestions = cardQuestions.filter(q => !answeredQuestions.has(q.id));
-  if (unansweredQuestions.length === 0) {
-    alert("ענית על כל השאלות בכרטיסיה זו. נסה כרטיסיה אחרת.");
+  const incorrectQuestions = cardQuestions.filter(q => 
+    answeredQuestions.has(q.id) && 
+    incorrectQuestions.some(iq => iq.id === q.id)
+  );
+  
+  if (incorrectQuestions.length === 0) {
+    showNotification("אין שאלות שגויות בכרטיסיה זו. כל הכבוד!", 'success');
     return;
   }
   
-  currentQuestions = unansweredQuestions;
+  currentQuestions = incorrectQuestions;
   currentQuestion = 0;
   score = 0;
-  incorrectQuestions = [];
   
   hideElement("question-cards");
   showElement("game");
@@ -340,7 +621,6 @@ const endGame = () => {
     updateUserStats();
     updateUserRank();
   }
-  
   const viewCardsButton = document.createElement("button");
   viewCardsButton.textContent = "צפה בכרטיסיות השאלות";
   viewCardsButton.className = "main-btn";
@@ -430,9 +710,24 @@ const startTimer = () => {
     updateTimerDisplay(timeLeft);
     if (timeLeft <= 0) {
       clearInterval(timer);
-      checkAnswer(-1);
+      handleTimeUp();
     }
   }, 1000);
+};
+
+const handleTimeUp = () => {
+  if (!hasAnswered) {
+    hasAnswered = true;
+    showFeedback("timeUp");
+    updateScore(); // לא מעלים את הניקוד כי לא ענו
+    const correctIndex = currentQuestions[currentQuestion].correctAnswer;
+    document.querySelectorAll('#options button')[correctIndex].classList.add('correct-answer');
+    
+    setTimeout(() => {
+      currentQuestion++;
+      displayQuestion();
+    }, 3000);
+  }
 };
 
 const updateTimerDisplay = (timeLeft) => {
@@ -455,18 +750,18 @@ const updateProgressBar = () => {
 const setDifficulty = (level) => {
   difficulty = level;
   document.querySelectorAll(".difficulty-btn").forEach((btn) => {
-    btn.classList.remove("active");
+    btn.classList.remove("selected");
   });
-  document.getElementById(level).classList.add("active");
+  document.getElementById(level).classList.add("selected");
   checkGameStart();
 };
 
 const setCategory = (category) => {
   selectedCategory = category;
   document.querySelectorAll(".category-btn").forEach((btn) => {
-    btn.classList.remove("active");
+    btn.classList.remove("selected");
   });
-  document.getElementById(category).classList.add("active");
+  document.getElementById(category).classList.add("selected");
   checkGameStart();
 };
 
@@ -484,9 +779,9 @@ const checkGameStart = () => {
 const setLicenseType = (type) => {
   selectedLicenseType = type;
   document.querySelectorAll(".license-btn").forEach((btn) => {
-    btn.classList.remove("active");
+    btn.classList.remove("selected");
   });
-  document.getElementById(type).classList.add("active");
+  document.getElementById(type).classList.add("selected");
   checkGameStart();
 };
 
@@ -518,30 +813,73 @@ const switchAuthTab = (tab) => {
 };
 
 const login = (email, password) => {
-  // כאן תהיה הלוגיקה של התחברות מול השרת
-  // לצורך הדוגמה, נניח שההתחברות הצליחה
-  currentUser = { email: email, name: "משתמש" };
-  hideAuthScreen();
-  updateUIForLoggedInUser();
+  const users = JSON.parse(localStorage.getItem('users')) || [];
+  const user = users.find(u => u.email === email && u.password === password);
+  if (user) {
+    currentUser = user;
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    hideAuthScreen();
+    updateUIForLoggedInUser();
+    showNotification('התחברת בהצלחה!', 'success');
+  } else {
+    showNotification('שם משתמש או סיסמה לא נכונים', 'error');
+  }
 };
 
-const register = (name, email, password) => {
-  // כאן תהיה הלוגיקה של הרשמה מול השרת
-  // לצורך הדוגמה, נניח שההרשמה הצליחה
-  currentUser = { name: name, email: email };
+const register = (name, email, password, passwordConfirm) => {
+  if (password !== passwordConfirm) {
+      showNotification('הסיסמאות אינן תואמות', 'error');
+      return;
+  }
+  
+  let users = JSON.parse(localStorage.getItem('users')) || [];
+  
+  if (users.some(u => u.email === email)) {
+      showNotification('כתובת האימייל כבר קיימת במערכת', 'error');
+      return;
+  }
+
+  const newUser = { name, email, password, gameState: {} };
+  users.push(newUser);
+  localStorage.setItem('users', JSON.stringify(users));
+  
+  currentUser = newUser;
+  localStorage.setItem('currentUser', JSON.stringify(newUser));
+  
+  showNotification('נרשמת בהצלחה!', 'success');
+  
   hideAuthScreen();
   updateUIForLoggedInUser();
+  showMenu(); // Add this line to show the main menu after successful registration
+};
+
+const showNotification = (message, type) => {
+  const notification = document.getElementById('notification');
+  notification.textContent = message;
+  notification.className = `notification ${type}`;
+  notification.style.display = 'block';
+  
+  setTimeout(() => {
+      notification.style.display = 'none';
+  }, 3000);
 };
 
 const logout = () => {
   currentUser = null;
+  localStorage.removeItem('currentUser');
   updateUIForLoggedOutUser();
 };
 
 const updateUIForLoggedInUser = () => {
-  document.getElementById('user-menu-btn').textContent = `שלום, ${currentUser.name || currentUser.email}`;
-  document.getElementById('user-area').style.display = 'block';
-  showMenu();
+  if (currentUser) {
+    document.getElementById('user-menu-btn').textContent = `שלום, ${currentUser.name}`;
+    document.getElementById('user-area').style.display = 'block';
+    document.getElementById('auth-screen').style.display = 'none';
+    loadUserGameState();
+    showMenu();
+  } else {
+    console.error('No current user found');
+  }
 };
 
 const updateUIForLoggedOutUser = () => {
@@ -549,6 +887,33 @@ const updateUIForLoggedOutUser = () => {
   document.getElementById('user-area').style.display = 'block';
   document.getElementById('user-menu').style.display = 'none';
   showAuthScreen();
+};
+
+const saveUserGameState = () => {
+  if (currentUser) {
+    currentUser.gameState = {
+      answeredQuestions: Array.from(answeredQuestions),
+      userStats,
+      highScore: localStorage.getItem('highScore')
+    };
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const userIndex = users.findIndex(u => u.email === currentUser.email);
+    if (userIndex !== -1) {
+      users[userIndex] = currentUser;
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+  }
+};
+
+const loadUserGameState = () => {
+  if (currentUser && currentUser.gameState) {
+    answeredQuestions = new Set(currentUser.gameState.answeredQuestions);
+    userStats = currentUser.gameState.userStats || {};
+    localStorage.setItem('highScore', currentUser.gameState.highScore || '0');
+    displayHighScore();
+  }
 };
 
 const resetGame = () => {
@@ -559,7 +924,6 @@ const resetGame = () => {
     localStorage.removeItem("gameCustomization");
     userStats = {};
     
-    // איפוס הגדרות המשחק
     difficulty = "medium";
     selectedCategory = "all";
     selectedLicenseType = "B";
@@ -567,27 +931,25 @@ const resetGame = () => {
     isPracticeMode = false;
     isCompetitionMode = false;
     
-    // איפוס הצבעים וגודל הגופן לברירת המחדל
     document.documentElement.style.removeProperty('--background-color');
     document.documentElement.style.removeProperty('--text-color');
     document.body.style.fontSize = '';
     
-    // איפוס אלמנטים בממשק המשתמש
     document.getElementById("bg-color").value = "#ffffff";
     document.getElementById("text-color").value = "#000000";
     document.getElementById("font-size").value = "16";
     document.getElementById("num-questions").value = "10";
     document.getElementById("practice-mode").checked = false;
     
-    // עדכון הממשק
     setDifficulty("medium");
     setCategory("all");
     setLicenseType("B");
+    saveUserGameState();
     updateUIForLoggedInUser();
     showMenu();
     displayHighScore();
     
-    alert("המשחק אופס בהצלחה!");
+  showNotification("המשחק אופס בהצלחה!", 'success');
   }
 };
 
@@ -643,6 +1005,11 @@ const showStatsScreen = () => {
   statsContent.innerHTML = "<h3>סטטיסטיקות אחרונות:</h3>";
 
   const dates = Object.keys(userStats).sort().reverse().slice(0, 7);
+  if (dates.length === 0) {
+    statsContent.innerHTML += "<p>אין עדיין מספיק נתונים להצגת סטטיסטיקות. המשך לשחק כדי לצבור נתונים.</p>";
+    return;
+  }
+
   dates.forEach(date => {
     const stats = userStats[date];
     const percentage = ((stats.correctAnswers / stats.totalQuestions) * 100).toFixed(2);
@@ -722,7 +1089,7 @@ const startAdvancedPractice = () => {
   );
 
   if (difficultQuestions.length < 5) {
-    alert("אין מספיק שאלות למצב אימון מתקדם. נסה לענות על יותר שאלות קודם.");
+    showNotification("אין מספיק שאלות למצב אימון מתקדם. נסה לענות על יותר שאלות קודם.", 'error');
     return;
   }
 
@@ -754,8 +1121,8 @@ const saveCustomization = () => {
 
   localStorage.setItem('gameCustomization', JSON.stringify({bgColor, textColor, fontSize}));
 
-  alert("ההתאמות האישיות נשמרו בהצלחה!");
-  showMenu();
+showNotification("ההתאמות האישיות נשמרו בהצלחה!", 'success');
+showMenu();
 };
 
 const loadCustomization = () => {
@@ -799,12 +1166,12 @@ const checkAchievements = () => {
     { name: "מומחה תנועה", condition: () => userStats.categories && userStats.categories["traffic_signs"] && calculatePercentage(userStats.categories["traffic_signs"].correct, userStats.categories["traffic_signs"].total) >= 90 },
   ];
 
-  achievements.forEach(achievement => {
-    if (achievement.condition() && !userStats.achievements.includes(achievement.name)) {
-      userStats.achievements.push(achievement.name);
-      alert(`כל הכבוד! השגת את ההישג: ${achievement.name}`);
-    }
-  });
+achievements.forEach(achievement => {
+  if (achievement.condition() && !userStats.achievements.includes(achievement.name)) {
+    userStats.achievements.push(achievement.name);
+    showNotification(`כל הכבוד! השגת את ההישג: ${achievement.name}`, 'success');
+  }
+});
 
   localStorage.setItem('userStats', JSON.stringify(userStats));
 };
@@ -837,9 +1204,9 @@ const endCompetitionMode = () => {
   const finalTime = document.getElementById("competition-timer").textContent.split(": ")[1];
   const accuracy = (score / currentQuestions.length) * 100;
 
-  alert(`סיימת את התחרות!
+  showNotification(`סיימת את התחרות!
 זמן: ${finalTime}
-דיוק: ${accuracy.toFixed(2)}%`);
+דיוק: ${accuracy.toFixed(2)}%`, 'success');
 };
 
 const formatTime = (seconds) => {
@@ -869,6 +1236,13 @@ function applyCustomization() {
   document.documentElement.style.setProperty('--text-color', textColor);
   document.body.style.fontSize = `${fontSize}px`;
 }
+
+const getQuestionSetIcon = (setNumber) => {
+  const icons = [
+    "🚗", "🛑", "🔧", "🦺", "🚸"
+  ];
+  return icons[setNumber % icons.length];
+};
 
 // Event Listeners
 document.getElementById("start-game").onclick = initGame;
@@ -908,83 +1282,68 @@ document.getElementById("practice-mode").addEventListener("change", togglePracti
 document.getElementById("bg-color").addEventListener("input", applyCustomization);
 document.getElementById("text-color").addEventListener("input", applyCustomization);
 document.getElementById("font-size").addEventListener("input", applyCustomization);
-
-// Initialize game on page load
-window.onload = () => {
-  setDifficulty("medium");
-  setCategory("all");
-  setLicenseType("B");
-  displayHighScore();
-  loadCustomization();
   
-  // טעינת כל השאלות וקביעת מזהה ייחודי
-  allQuestions = [];
-  let id = 1;
-  for (let category in questions) {
-    questions[category].forEach(q => {
-      q.id = id++;
-      q.category = category;
-      allQuestions.push(q);
-    });
-  }
-  
-  document.querySelectorAll('.auth-tab').forEach(tab => {
-    tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+// טעינת כל השאלות וקביעת מזהה ייחודי
+allQuestions = [];
+let id = 1;
+for (let category in questions) {
+  questions[category].forEach(q => {
+    q.id = id++;
+    q.category = category;
+    allQuestions.push(q);
   });
+}
 
-  document.querySelector('#login-form .auth-submit').addEventListener('click', () => {
-    const email = document.querySelector('#login-form input[type="email"]').value;
-    const password = document.querySelector('#login-form input[type="password"]').value;
-    login(email, password);
-  });
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+});
 
-  document.querySelector('#register-form .auth-submit').addEventListener('click', () => {
-    const name = document.querySelector('#register-form input[type="text"]').value;
-    const email = document.querySelector('#register-form input[type="email"]').value;
-    const password = document.querySelector('#register-form input[type="password"]').value;
-    register(name, email, password);
-  });
+document.querySelector('#login-form .auth-submit').addEventListener('click', () => {
+  const email = document.querySelector('#login-form input[type="email"]').value;
+  const password = document.querySelector('#login-form input[type="password"]').value;
+  // login(email, password);
+});
 
-  document.getElementById('logout-btn').addEventListener('click', logout);
+document.querySelector('#register-form .auth-submit').addEventListener('click', () => {
+  const name = document.querySelector('#register-form input[type="text"]').value;
+  const email = document.querySelector('#register-form input[type="email"]').value;
+  const password = document.querySelector('#register-form input[type="password"]').value;
+  const passwordConfirm = document.querySelector('#register-form input[type="password"][placeholder="אימות סיסמה"]').value;
+  // register(name, email, password, passwordConfirm);
+});
 
-  // בדיקה אם המשתמש מחובר (למשל, מהסשן)
-  if (!currentUser) {
-    showAuthScreen();
-  } else {
-    updateUIForLoggedInUser();
+document.getElementById('logout-btn').addEventListener('click', logout);
+
+// בדיקה אם המשתמש מחובר (למשל, מהסשן)
+const savedUser = localStorage.getItem('currentUser');
+if (savedUser) {
+  currentUser = JSON.parse(savedUser);
+  updateUIForLoggedInUser();
+} else {
+  showAuthScreen();
+}
+
+// סגירת התפריט כשלוחצים מחוץ אליו
+document.addEventListener('click', (event) => {
+  const userArea = document.getElementById('user-area');
+  const userMenu = document.getElementById('user-menu');
+  if (!userArea.contains(event.target) && userMenu.style.display === 'block') {
+    userMenu.style.display = 'none';
   }
+});
 
-  // סגירת התפריט כשלוחצים מחוץ אליו
-  document.addEventListener('click', (event) => {
-    const userArea = document.getElementById('user-area');
-    const userMenu = document.getElementById('user-menu');
-    if (!userArea.contains(event.target) && userMenu.style.display === 'block') {
-      userMenu.style.display = 'none';
-    }
-  });
+// טעינת סטטיסטיקות המשתמש מ-localStorage
+const savedStats = localStorage.getItem('userStats');
+if (savedStats) {
+  userStats = JSON.parse(savedStats);
+}
 
-  // טעינת סטטיסטיקות המשתמש מ-localStorage
-  const savedStats = localStorage.getItem('userStats');
-  if (savedStats) {
-    userStats = JSON.parse(savedStats);
-  }
-
-  // יצירת כפתורי קטגוריות
-  for (let category in questions) {
-    let button = document.createElement("button");
-    button.id = category;
-    button.className = "category-btn";
-    button.textContent = getCategoryDisplayName(category);
-    button.onclick = () => setCategory(category);
-    document.querySelector(".category-buttons").appendChild(button);
-  }
-};
-
-
-
-
-
-
-
-
-
+// יצירת כפתורי קטגוריות
+for (let category in questions) {
+  let button = document.createElement("button");
+  button.id = category;
+  button.className = "category-btn";
+  button.textContent = getCategoryDisplayName(category);
+  button.onclick = () => setCategory(category);
+  document.querySelector(".category-buttons").appendChild(button);
+}
