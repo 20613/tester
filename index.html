@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -6,139 +7,164 @@
     <title>טסטר - משחק שאלות תאוריה</title>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <meta name="description" content="משחק שאלות תאוריה אינטראקטיבי לתרגול לקראת מבחן התיאוריה">
 </head>
 <body>
     <div id="game-container">
-        <h1>טסטר - משחק שאלות תאוריה</h1>
+        <header>
+            <h1>טסטר - משחק שאלות תאוריה</h1>
+        </header>
+        <div id="notification" class="notification"></div>
+        <nav id="user-area">
+            <button id="user-menu-btn" class="user-btn" aria-haspopup="true" aria-expanded="false">שלום, אורח</button>
+            <div id="user-menu" class="user-menu" role="menu" hidden>
+                <button id="reset-game" class="user-menu-item" role="menuitem">איפוס המשחק</button>
+                <button id="view-stats" class="user-menu-item" role="menuitem">צפייה בסטטיסטיקות</button>
+                <button id="customize-game" class="user-menu-item" role="menuitem">התאמה אישית</button>
+                <button id="logout-btn" class="user-menu-item" role="menuitem">התנתקות</button>
+            </div>
+        </nav>
         
-        <div id="user-area">
-            <button id="user-menu-btn" class="user-btn">שלום, אורח</button>
-            <div id="user-menu" class="user-menu">
-                <button id="reset-game" class="user-menu-item">איפוס המשחק</button>
-                <button id="view-stats" class="user-menu-item">צפייה בסטטיסטיקות</button>
-                <button id="customize-game" class="user-menu-item">התאמה אישית</button>
-                <button id="logout-btn" class="user-menu-item">התנתקות</button>
-            </div>
-        </div>
-        
-        <div id="menu">
-            <h2>בחר רמת קושי:</h2>
-            <div class="difficulty-buttons">
-                <button id="easy" class="difficulty-btn">קל</button>
-                <button id="medium" class="difficulty-btn">בינוני</button>
-                <button id="hard" class="difficulty-btn">קשה</button>
-            </div>
+        <main>
+            <section id="menu">
+                <h2>הגדרות משחק</h2>
+                <div class="game-settings">
+                    <fieldset>
+                        <legend>בחר רמת קושי:</legend>
+                        <div class="difficulty-buttons">
+                            <button id="easy" class="difficulty-btn">קל</button>
+                            <button id="medium" class="difficulty-btn">בינוני</button>
+                            <button id="hard" class="difficulty-btn">קשה</button>
+                        </div>
+                    </fieldset>
 
-            <h2>בחר דרגת רישיון:</h2>
-            <div class="license-buttons">
-                <button id="A" class="license-btn" onclick="setLicenseType('A')">A</button>
-                <button id="B" class="license-btn" onclick="setLicenseType('B')">B</button>
-                <button id="C" class="license-btn" onclick="setLicenseType('C')">C</button>
-                <button id="C1" class="license-btn" onclick="setLicenseType('C1')">C1</button>
-                <button id="D" class="license-btn" onclick="setLicenseType('D')">D</button>
-                <button id="1" class="license-btn" onclick="setLicenseType('1')">1</button>
-            </div>
+                    <fieldset>
+                        <legend>בחר דרגת רישיון:</legend>
+                        <div class="license-buttons">
+                            <button id="A" class="license-btn" onclick="setLicenseType('A')">A</button>
+                            <button id="B" class="license-btn" onclick="setLicenseType('B')">B</button>
+                            <button id="C" class="license-btn" onclick="setLicenseType('C')">C</button>
+                            <button id="C1" class="license-btn" onclick="setLicenseType('C1')">C1</button>
+                            <button id="D" class="license-btn" onclick="setLicenseType('D')">D</button>
+                            <button id="1" class="license-btn" onclick="setLicenseType('1')">1</button>
+                        </div>
+                    </fieldset>
 
-            <h2>בחר קטגוריה:</h2>
-            <div class="category-buttons">
-                <button id="all" class="category-btn">הכל</button>
-                <!-- קטגוריות נוספות יתווספו כאן דינמית -->
-            </div>
+                    <fieldset>
+                        <legend>בחר קטגוריה:</legend>
+                        <div class="category-buttons">
+                            <button id="all" class="category-btn">הכל</button>
+                            <!-- קטגוריות נוספות יתווספו כאן דינמית -->
+                        </div>
+                    </fieldset>
 
-            <div id="question-count">
-                <label for="num-questions">מספר שאלות:</label>
-                <div id="question-count-container">
-                    <button id="question-count-minus">-</button>
-                    <input type="number" id="num-questions" min="1" max="50" value="10">
-                    <button id="question-count-plus">+</button>
+                    <div id="question-count">
+                        <label for="num-questions">מספר שאלות:</label>
+                        <div id="question-count-container">
+                            <button id="question-count-minus" aria-label="הפחת מספר שאלות">-</button>
+                            <input type="number" id="num-questions" min="1" max="50" value="10" aria-label="מספר שאלות">
+                            <button id="question-count-plus" aria-label="הוסף מספר שאלות">+</button>
+                        </div>
+                    </div>
+
+                    <div class="game-mode">
+                        <label>
+                            <input type="checkbox" id="practice-mode"> מצב אימון
+                        </label>
+                    </div>
                 </div>
-            </div>
 
-            <div class="game-mode">
-                <label>
-                    <input type="checkbox" id="practice-mode"> מצב אימון
-                </label>
-            </div>
+                <button id="start-game" class="main-btn">התחל משחק</button>
+                <button id="start-advanced-practice" class="main-btn">מצב אימון מתקדם</button>
+                <button id="start-competition" class="main-btn">מצב תחרות</button>
+            </section>
 
-            <button id="start-game" class="main-btn">התחל משחק</button>
-            <button id="start-advanced-practice" class="main-btn">מצב אימון מתקדם</button>
-            <button id="start-competition" class="main-btn">מצב תחרות</button>
-        </div>
+            <section id="game" hidden>
+                <div id="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                <div id="score" aria-live="polite"></div>
+                <div id="timer-container">
+                    <div id="timer-circle" role="timer"></div>
+                </div>
+                <div id="question-container">
+                    <h2 id="question"></h2>
+                    <div id="question-image" aria-live="polite"></div>
+                    <div id="options" role="radiogroup"></div>
+                </div>
+                <div id="feedback" aria-live="assertive"></div>
+                <div id="explanation" hidden></div>
+            </section>
 
-        <div id="game" style="display: none;">
-            <div id="progress-bar"></div>
-            <div id="score"></div>
-            <div id="timer-container">
-                <div id="timer-circle"></div>
-            </div>
-            <div id="question-container">
-                <h2 id="question"></h2>
-                <div id="question-image"></div>
-                <div id="options"></div>
-            </div>
-            <div id="feedback"></div>
-            <div id="explanation" style="display: none;"></div>
-        </div>
+            <section id="end-screen" hidden>
+                <h2>המשחק הסתיים!</h2>
+                <p id="final-score"></p>
+                <p id="compliment"></p>
+                <div id="stats"></div>
+                <div id="incorrect-questions"></div>
+                <p id="high-score"></p>
+                <p id="user-rank"></p>
+                <button id="play-again" class="main-btn">שחק שוב</button>
+                <button id="view-cards" class="main-btn">צפייה בכרטיסיות</button>
+            </section>
 
-        <div id="end-screen" style="display: none;">
-            <h2>המשחק הסתיים!</h2>
-            <p id="final-score"></p>
-            <p id="compliment"></p>
-            <div id="stats"></div>
-            <div id="incorrect-questions"></div>
-            <p id="high-score"></p>
-            <p id="user-rank"></p>
-            <button id="play-again" class="main-btn">שחק שוב</button>
-        </div>
+            <section id="question-cards" hidden>
+                <!-- תוכן זה ייווצר דינמית ב-JavaScript -->
+            </section>
 
-        <div id="question-cards" style="display: none;">
-            <!-- תוכן זה ייווצר דינמית ב-JavaScript -->
-        </div>
+            <section id="stats-screen" hidden>
+                <h2>סטטיסטיקות</h2>
+                <div id="stats-content"></div>
+                <button id="back-to-menu-from-stats" class="main-btn">חזרה לתפריט</button>
+            </section>
 
-        <div id="stats-screen" style="display: none;">
-            <h2>סטטיסטיקות</h2>
-            <div id="stats-content"></div>
-            <button id="back-to-menu-from-stats" class="main-btn">חזרה לתפריט</button>
-        </div>
-
-        <div id="customize-screen" style="display: none;">
-            <h2>התאמה אישית</h2>
-            <div id="customize-content">
-                <h3>צבע רקע:</h3>
-                <input type="color" id="bg-color" value="#f1f2f6">
-                <h3>צבע טקסט:</h3>
-                <input type="color" id="text-color" value="#2c3e50">
-                <h3>גודל גופן:</h3>
-                <input type="range" id="font-size" min="12" max="24" value="16">
-            </div>
-            <button id="save-customization" class="main-btn">שמור שינויים</button>
-            <button id="back-to-menu-from-customize" class="main-btn">חזרה לתפריט</button>
-        </div>
+            <section id="customize-screen" hidden>
+                <h2>התאמה אישית</h2>
+                <div id="customize-content">
+                    <label for="bg-color">צבע רקע:</label>
+                    <input type="color" id="bg-color" value="#f1f2f6">
+                    <label for="text-color">צבע טקסט:</label>
+                    <input type="color" id="text-color" value="#2c3e50">
+                    <label for="font-size">גודל גופן:</label>
+                    <input type="range" id="font-size" min="12" max="24" value="16">
+                </div>
+                <button id="save-customization" class="main-btn">שמור שינויים</button>
+                <button id="back-to-menu-from-customize" class="main-btn">חזרה לתפריט</button>
+            </section>
+        </main>
     </div>
 
-    <button id="back-to-menu" class="floating-btn" style="display: none;">חזור לתפריט</button>
+    <button id="back-to-menu" class="floating-btn" hidden>חזור לתפריט</button>
     <button id="view-question-cards" class="floating-btn">כרטיסיות השאלות</button>
 
-    <div id="auth-screen" class="fullscreen-overlay">
+    <div id="auth-screen" class="fullscreen-overlay" hidden>
         <div class="auth-container">
-            <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="login">כניסה</button>
-                <button class="auth-tab" data-tab="register">הרשמה</button>
+            <div class="auth-tabs" role="tablist">
+                <button class="auth-tab active" data-tab="login" role="tab" aria-selected="true">כניסה</button>
+                <button class="auth-tab" data-tab="register" role="tab" aria-selected="false">הרשמה</button>
             </div>
-            <div id="login-form" class="auth-form active">
+            <div id="login-form" class="auth-form active" role="tabpanel">
                 <h2>ברוכים השבים</h2>
-                <input type="email" placeholder="אימייל" required>
-                <input type="password" placeholder="סיסמה" required>
-                <button class="auth-submit">כניסה</button>
+                <form>
+                    <label for="login-email">אימייל:</label>
+                    <input type="email" id="login-email" required>
+                    <label for="login-password">סיסמה:</label>
+                    <input type="password" id="login-password" required>
+                    <button type="submit" class="auth-submit" id="login-submit">כניסה</button>
+                </form>
                 <p class="auth-forgot">שכחת סיסמה?</p>
             </div>
-            <div id="register-form" class="auth-form">
+            <div id="register-form" class="auth-form" role="tabpanel" hidden>
                 <h2>הצטרפו אלינו</h2>
-                <input type="text" placeholder="שם מלא" required>
-                <input type="email" placeholder="אימייל" required>
-                <input type="password" placeholder="סיסמה" required>
-                <input type="password" placeholder="אימות סיסמה" required>
-                <button class="auth-submit">הרשמה</button>
+                <form id="register-form-element">
+                    <label for="register-name">שם מלא:</label>
+                    <input type="text" id="register-name" required>
+                    <label for="register-email">אימייל:</label>
+                    <input type="email" id="register-email" required>
+                    <label for="register-password">סיסמה:</label>
+                    <input type="password" id="register-password" required>
+                    <label for="register-password-confirm">אימות סיסמה:</label>
+                    <input type="password" id="register-password-confirm" placeholder="אימות סיסמה" required>
+                    <button type="submit" class="auth-submit" id="register-submit">הרשמה</button>
+                </form>
             </div>
         </div>
     </div>
