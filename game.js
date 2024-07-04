@@ -23,6 +23,10 @@ let userRank = 0;
 let isCompetitionMode = false;
 let competitionStartTime;
 let hasAnswered = false;
+let isMockExam = false;
+const MOCK_EXAM_TIME = 40 * 60; // 40 דקות בשניות
+const MOCK_EXAM_QUESTIONS = 30; // 30 שאלות
+const MOCK_EXAM_PASS_THRESHOLD = 26; // 26 תשובות נכונות כדי לעבור
 
 /**
  * Initializes the game
@@ -506,25 +510,49 @@ const showCategoryCards = (category) => {
   cardsContainer.className = "cards-container";
   
   const categoryQuestions = category === "all" ? allQuestions : questions[category];
-  let hasIncorrectQuestions = false;
   
+  function createQuestionCard(cardQuestions, cardNumber) {
+    const card = document.createElement("div");
+    card.className = "question-card";
+    
+    const answeredCount = cardQuestions.filter(q => answeredQuestions.has(q.id)).length;
+    const incorrectCount = cardQuestions.filter(q => 
+      answeredQuestions.has(q.id) && 
+      incorrectQuestions.some(iq => iq.id === q.id)
+    ).length;
+    
+    card.innerHTML = `
+      <div class="card-icon">${getQuestionSetIcon(cardNumber - 1)}</div>
+      <h3>סט שאלות ${cardNumber}</h3>
+    `;
+    
+    if (answeredCount === cardQuestions.length) {
+      if (incorrectCount === 0) {
+        card.classList.add('completed');
+        card.innerHTML += '<p>כל השאלות נענו נכון!</p>';
+      } else {
+        card.innerHTML += `<p>שאלות שגויות: ${incorrectCount} מתוך ${cardQuestions.length}</p>`;
+        card.onclick = () => startCardQuiz(cardQuestions);
+      }
+    } else {
+      card.innerHTML += `<p>לחץ כדי לענות על השאלות</p>`;
+      card.onclick = () => startCardQuiz(cardQuestions);
+    }
+    
+    return card;
+  }
+
   for (let i = 0; i < categoryQuestions.length; i += 50) {
     const cardQuestions = categoryQuestions.slice(i, i + 50);
     const card = createQuestionCard(cardQuestions, i / 50 + 1);
-    if (!card.classList.contains('completed')) {
-      hasIncorrectQuestions = true;
-    }
     cardsContainer.appendChild(card);
-  }
-  
-  if (!hasIncorrectQuestions) {
-    cardsContainer.innerHTML = '<p>כל הכבוד! אין שאלות שגויות בקטגוריה זו.</p>';
   }
   
   container.appendChild(cardsContainer);
   
   document.getElementById("back-to-categories").onclick = showQuestionCards;
 };
+
 const createQuestionCard = (cardQuestions, cardNumber) => {
   const card = document.createElement("div");
   card.className = "question-card";
@@ -804,7 +832,7 @@ const register = (name, email, password, passwordConfirm) => {
       return;
   }
   
-  const users = JSON.parse(localStorage.getItem('users')) || [];
+  let users = JSON.parse(localStorage.getItem('users')) || [];
   
   if (users.some(u => u.email === email)) {
       showNotification('כתובת האימייל כבר קיימת במערכת', 'error');
@@ -822,7 +850,9 @@ const register = (name, email, password, passwordConfirm) => {
   
   hideAuthScreen();
   updateUIForLoggedInUser();
+  showMenu(); // Add this line to show the main menu after successful registration
 };
+
 const showNotification = (message, type) => {
   const notification = document.getElementById('notification');
   notification.textContent = message;
