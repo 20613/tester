@@ -352,14 +352,19 @@ const setupEventListeners = () => {
   });
 
   document.querySelector('#login-form').addEventListener('submit', handleLogin);
-  document.querySelector('#register-form').addEventListener('submit', handleRegister);
   document.getElementById('logout-btn').addEventListener('click', logout);
-  const registerForm = document.getElementById('register-form-element');
-  if (registerForm) {
-    registerForm.addEventListener('submit', handleRegister);
-  } else {
-    console.error('Registration form not found');
-  }
+    const registerForm = document.getElementById('register-form-element');
+    if (registerForm) {
+      registerForm.addEventListener('submit', handleRegister);
+    } else {
+      console.error('Registration form not found');
+    }
+
+    const registerButton = document.getElementById('register-submit');
+    if (registerButton) {
+      registerButton.removeEventListener('click', handleRegister);
+    }
+
   // Game control event listeners
   document.getElementById("start-game").addEventListener('click', initGame);
   document.getElementById("play-again").addEventListener('click', initGame);
@@ -828,15 +833,15 @@ const login = (email, password) => {
 
 const register = (name, email, password, passwordConfirm) => {
   if (password !== passwordConfirm) {
-      showNotification('הסיסמאות אינן תואמות', 'error');
-      return;
+    showNotification('הסיסמאות אינן תואמות', 'error');
+    return;
   }
   
   let users = JSON.parse(localStorage.getItem('users')) || [];
   
   if (users.some(u => u.email === email)) {
-      showNotification('כתובת האימייל כבר קיימת במערכת', 'error');
-      return;
+    showNotification('כתובת האימייל כבר קיימת במערכת', 'error');
+    return;
   }
 
   const newUser = { name, email, password, gameState: {} };
@@ -850,7 +855,7 @@ const register = (name, email, password, passwordConfirm) => {
   
   hideAuthScreen();
   updateUIForLoggedInUser();
-  showMenu(); // Add this line to show the main menu after successful registration
+  showMenu();
 };
 
 const showNotification = (message, type) => {
